@@ -1,67 +1,59 @@
-# Use Alpine Linux as base image for minimal container size
-FROM alpine:latest
+# Multi-stage build to copy binaries from other images
 
-# Copy configuration file to toggle installations during build
-COPY build.config /tmp/
+FROM debian:trixie
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt update && apt install -y ca-certificates
+RUN apt install -y curl wget unzip tmux vim git jq openssh-server sudo
 
-# Run installation commands conditionally based on build.config
-RUN set -e && \
-  # Update package index and install essential tools
-  apk update && apk upgrade && \
-  apk add --no-cache ca-certificates curl bash && \
-  # Source the configuration file to set variables
-  . /tmp/build.config && \
-  # Install system tools if enabled
-  if [ "$INSTALL_SYSTEM" = "true" ]; then \
-    apk add --no-cache vim tmux wget openssh && \
-    # Generate SSH host keys for secure connections
-    ssh-keygen -A && \
-    # Set root password for SSH access
-    echo "root:$ROOT_PASSWORD" | chpasswd && \
-    # Enable root login via SSH
-    sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config ; \
-  fi && \
-  # Install programming runtimes if enabled
-  if [ "$INSTALL_RUNTIMES" = "true" ]; then \
-    apk add --no-cache nodejs npm && \
-    # Install Bun JavaScript runtime
-    curl -fsSL https://bun.sh/install | bash && \
-    # Install Deno JavaScript/TypeScript runtime
-    curl -fsSL https://deno.land/install.sh | sh && \
-    # Add Bun and Deno to PATH for login shells
-    echo 'export PATH="$PATH:/root/.bun/bin:/root/.deno/bin"' >> /etc/profile ; \
-  fi && \
-  # Install CLI tools if enabled
-  if [ "$INSTALL_CLIS" = "true" ]; then \
-    # Ensure Node.js and npm are available for CLI installations
-    if [ "$INSTALL_RUNTIMES" != "true" ]; then \
-      apk add --no-cache nodejs npm ; \
-    fi && \
-    # Install build dependencies for native modules
-    apk add --no-cache build-base python3 && \
-    # Install VSCode server for web-based code editing (using pre-built binary)
-    wget https://github.com/coder/code-server/releases/download/v4.104.2/code-server-4.104.2-linux-arm64.tar.gz && \
-    tar -xzf code-server-4.104.2-linux-arm64.tar.gz && \
-    mv code-server-4.104.2-linux-arm64 /usr/local/code-server && \
-    ln -s /usr/local/code-server/bin/code-server /usr/local/bin/code-server && \
-    rm code-server-4.104.2-linux-arm64.tar.gz && \
-    # Install Claude CLI for AI assistance
-    npm install -g @anthropic-ai/claude-code && \
-    # Install GitHub Copilot CLI for code suggestions
-    npm install -g @github/copilot && \
-    # Install Opencode CLI for development tasks
-    curl -fsSL https://opencode.ai/install | bash && \
-    # Remove build dependencies to keep image slim
-    apk del build-base python3 ; \
-  fi && \
-  # Remove package manager and clean up caches to minimize size
-  apk del --no-cache apk-tools && \
-   rm -rf /var/cache/apk/* /tmp/*
+# Create a user called kucukkanat with it's home directory and add to sudoers
+RUN useradd -m -s /bin/bash kucukkanat && \
+    echo "kucukkanat ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers && \
+    chsh -s /usr/bin/bash kucukkanat
+# Permissions for linuxbrew installation
 
-ENV PATH="$PATH:/root/.bun/bin:/root/.deno/bin"
+# Install homebrew
+RUN mkdir -p /home/linuxbrew && chmod -R 777 /home/linuxbrew
+USER kucukkanat
+RUN /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" 
+# Add homebrew paths to bashrc
+RUN cat << "EOF" >> /home/kucukkanat/.bashrc
+eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+EOF
 
-# Expose ports for SSH access and code-server
-EXPOSE 22 8080
+# Install Bun. We love Bun!
+RUN curl -fsSL https://bun.sh/install | bash
+# Ensure bun is in PATH because docker containers don't load .bashrc by default
+ENV PATH="/home/kucukkanat/.bun/bin:${PATH}"
 
-# Start the SSH daemon to allow remote connections
-CMD ["/usr/sbin/sshd", "-D"]
+# Install Deno because why not? "-s -- -y" to skip the prompt
+RUN curl -fsSL https://deno.land/install.sh | sh -s -- -y
+
+# Install ai assistants from npm and brew
+RUN bun install -g @anthropic-ai/claude-code opencode-ai @google/gemini-cli
+
+# Install code-server  (using method standalone to avoid using root)
+RUN curl -fsSL https://code-server.dev/install.sh | sh -s -- --method=standalone
+RUN echo "" >> /home/kucukkanat/.bashrc
+RUN echo "export PATH=\$PATH:/home/kucukkanat/.local/bin" >> /home/kucukkanat/.bashrc
+# Default code-server password
+ENV PASSWORD="code"
+RUN mkdir -p /home/kucukkanat/.config/code-server
+RUN cat << "EOF" >> /home/kucukkanat/.config/code-server/config.yaml
+bind-addr: 0.0.0.0:8080
+app-name: kullanat
+EOF
+
+# Create startup script for SSH daemon
+RUN cat << "EOF" > /usr/local/bin/start-ssh.sh
+#!/bin/bash
+SSH_PORT=2222
+/usr/sbin/sshd -p $SSH_PORT -D
+EOF
+RUN chmod +x /usr/local/bin/start-ssh.sh
+
+# Expose default SSH port
+EXPOSE 2222
+# GO BACK TO ROOT USER
+USER root
+# Start SSH daemon
+CMD ["/usr/local/bin/start-ssh.sh"]
