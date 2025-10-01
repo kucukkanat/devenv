@@ -1,0 +1,5 @@
+#!/usr/bin/env  bash
+
+echo "Removing the package path for $1"
+rm -rf $(basher package-path $1)
+basher link . $1
