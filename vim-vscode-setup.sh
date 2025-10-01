@@ -1,0 +1,227 @@
+#!/bin/bash
+
+# Vim VSCode-like Setup Script
+# Uses Vim's native package system only (no external plugin managers)
+
+set -e
+
+echo "Setting up Vim with VSCode-like experience using native packages..."
+
+# Create necessary directories for Vim's native package system
+echo "Creating package directories..."
+mkdir -p ~/.vim/pack/plugins/start
+mkdir -p ~/.vim/pack/plugins/opt
+mkdir -p ~/.vim/colors
+
+# Function to clone plugin to start directory (auto-load)
+clone_plugin() {
+    local repo=$1
+    local name=$2
+    echo "Installing $name..."
+    if [ ! -d ~/.vim/pack/plugins/start/$name ]; then
+        git clone --depth 1 https://github.com/$repo ~/.vim/pack/plugins/start/$name
+    else
+        echo "$name already installed"
+    fi
+}
+
+# Function to clone plugin to opt directory (manual load)
+clone_plugin_opt() {
+    local repo=$1
+    local name=$2
+    echo "Installing $name (optional)..."
+    if [ ! -d ~/.vim/pack/plugins/opt/$name ]; then
+        git clone --depth 1 https://github.com/$repo ~/.vim/pack/plugins/opt/$name
+    else
+        echo "$name already installed"
+    fi
+}
+
+# Install essential plugins using Vim's native package system
+echo "Installing plugins..."
+
+# Color scheme
+clone_plugin "morhetz/gruvbox" "gruvbox"
+
+# File explorer (netrw is built-in, but let's add a better one)
+clone_plugin "preservim/nerdtree" "nerdtree"
+
+# Status line
+clone_plugin "vim-airline/vim-airline" "vim-airline"
+clone_plugin "vim-airline/vim-airline-themes" "vim-airline-themes"
+
+# Fuzzy finder (requires fzf binary and base plugin)
+if command -v fzf >/dev/null 2>&1; then
+    clone_plugin "junegunn/fzf" "fzf"
+    clone_plugin "junegunn/fzf.vim" "fzf.vim"
+else
+    echo "Warning: fzf not found. Install with: brew install fzf (macOS) or apt install fzf (Ubuntu)"
+fi
+
+# Syntax highlighting
+clone_plugin "sheerun/vim-polyglot" "vim-polyglot"
+
+# Git integration
+clone_plugin "tpope/vim-fugitive" "vim-fugitive"
+clone_plugin "airblade/vim-gitgutter" "vim-gitgutter"
+
+# Auto pairs
+clone_plugin "jiangmiao/auto-pairs" "auto-pairs"
+
+# Comments
+clone_plugin "tpope/vim-commentary" "vim-commentary"
+
+# Surround
+clone_plugin "tpope/vim-surround" "vim-surround"
+
+# Indent guides
+clone_plugin "Yggdroot/indentLine" "indentLine"
+
+# Terminal (built-in terminal is available in Vim 8.1+, but floaterm provides better UX)
+clone_plugin "voldikss/vim-floaterm" "vim-floaterm"
+
+# Create .vimrc with VSCode-like configuration
+echo "Creating .vimrc configuration..."
+cat > ~/.vimrc << 'EOF'
+" Basic Settings
+set nocompatible
+filetype plugin indent on
+syntax on
+
+" VSCode-like appearance
+set number
+set relativenumber
+set cursorline
+set showmatch
+set laststatus=2
+set ruler
+set wildmenu
+set showcmd
+set signcolumn=yes
+
+" Search settings
+set hlsearch
+set incsearch
+set ignorecase
+set smartcase
+
+" Indentation
+set autoindent
+set smartindent
+set expandtab
+set tabstop=4
+set shiftwidth=4
+set softtabstop=4
+
+" UI improvements
+set termguicolors
+set background=dark
+set mouse=a
+
+" Enable native packages
+set packpath=~/.vim
+
+" Key mappings (VSCode-like)
+let mapleader = " "
+
+" Save
+nnoremap <leader>s :w<CR>
+nnoremap <C-s> :w<CR>
+
+" Quit
+nnoremap <leader>q :q<CR>
+nnoremap <C-w> :q<CR>
+
+" File explorer
+nnoremap <leader>e :Explore<CR>
+nnoremap <C-b> :Lex<CR>
+
+" Search
+nnoremap <leader>f /
+nnoremap <leader>h :nohlsearch<CR>
+
+" Split navigation
+nnoremap <C-h> <C-w>h
+nnoremap <C-j> <C-w>j
+nnoremap <C-k> <C-w>k
+nnoremap <C-l> <C-w>l
+
+" Buffer navigation
+nnoremap <leader>bn :bnext<CR>
+nnoremap <leader>bp :bprevious<CR>
+nnoremap <leader>bd :bdelete<CR>
+
+" Toggle line numbers
+nnoremap <leader>n :set number! relativenumber!<CR>
+
+" Copy to system clipboard
+vnoremap <leader>y "+y
+nnoremap <leader>y "+y
+nnoremap <leader>p "+p
+vnoremap <leader>p "+p
+
+" Plugin configurations
+colorscheme gruvbox
+set background=dark
+
+" NERDTree
+nnoremap <leader>n :NERDTreeToggle<CR>
+let NERDTreeShowHidden=1
+let NERDTreeQuitOnOpen=1
+let NERDTreeAutoDeleteBuffer=1
+
+" Airline
+let g:airline#extensions#tabline#enabled=1
+let g:airline#extensions#tabline#fnamemod=':t'
+let g:airline_powerline_fonts=1
+
+" FZF (if available)
+if executable('fzf')
+    nnoremap <leader>ff :Files<CR>
+    nnoremap <leader>fg :Rg<CR>
+    nnoremap <leader>fb :Buffers<CR>
+endif
+
+" Auto-pairs
+let g:AutoPairsFlyMode=1
+
+" IndentLine
+let g:indentLine_char='│'
+let g:indentLine_enabled=1
+
+" Floaterm
+nnoremap <leader>tt :FloatermToggle<CR>
+tnoremap <leader>tt <C-\><C-n>:FloatermToggle<CR>
+let g:floaterm_width=0.8
+let g:floaterm_height=0.8
+
+" Auto commands
+augroup vimrc
+    autocmd!
+    " Return to last edit position when opening files
+    autocmd BufReadPost * if line("'\"") > 1 && line("'\"") <= line("$") | exe "normal! g'\"" | endif
+
+    " Remove trailing whitespace on save
+    autocmd BufWritePre * %s/\s\+$//e
+
+    " Highlight yanked text (Vim 8.2+)
+    if exists('##TextYankPost')
+        autocmd TextYankPost * silent! lua vim.highlight.on_yank({higroup="IncSearch", timeout=150})
+    endif
+augroup END
+EOF
+
+echo "Setup complete! Vim has been configured with VSCode-like features using native packages."
+echo ""
+echo "Key mappings:"
+echo "  <leader>s - Save file"
+echo "  <leader>e - File explorer"
+echo "  <leader>ff - Fuzzy find files (requires fzf)"
+echo "  <leader>fg - Fuzzy grep (requires fzf)"
+echo "  <leader>n - Toggle NERDTree"
+echo "  <leader>tt - Toggle terminal"
+echo "  <C-h/j/k/l> - Navigate splits"
+echo ""
+echo "Start Vim to begin using your new configuration!"
+echo ""
+echo "Note: LSP support requires Neovim. For Vim, consider using coc.nvim or other native alternatives."
