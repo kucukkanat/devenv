@@ -1,4 +1,14 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# Install vim if it doesn't exist
+if ! command -v vim >/dev/null 2>&1; then
+    echo "Vim not found. Installing Vim..."
+    if command -v apt >/dev/null 2>&1; then
+        apt update
+        apt install vim -y
+    elif command -v brew >/dev/null 2>&1; then
+        brew install vim
+    fi
+fi
 
 # Vim VSCode-like Setup Script
 # Uses Vim's native package system only (no external plugin managers)
@@ -130,7 +140,7 @@ nnoremap <C-s> :w<CR>
 
 " Quit
 nnoremap <leader>q :q<CR>
-nnoremap <C-w> :q<CR>
+" nnoremap <C-w> :q<CR>
 
 " File explorer
 nnoremap <leader>e :Explore<CR>

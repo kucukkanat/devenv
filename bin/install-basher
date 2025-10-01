@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Install basher
+export DEBIAN_FRONTEND=noninteractive
+if command -v apt &> /dev/null; then
+    apt update && apt install curl git -y
+else
+    echo "apt is not installed on this system. continuing"
+fi
+curl -s https://raw.githubusercontent.com/basherpm/basher/master/install.sh | bash

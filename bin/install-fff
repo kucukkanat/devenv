@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+if ! command -v basher &> /dev/null; then
+    echo "Error: basher is not installed. Please install it and try again."
+    exit 1
+fi
+basher install dylanaraps/fff
+
+if grep -q "# fff - Fuzzy Finder File Manager" "$HOME/.bash_profile"; then
+    echo "The fff configuration is already present in .bashrc."
+else
+    cat << "EOF" >> $HOME/.bash_profile
+# fff - Fuzzy Finder File Manager
+export FFF_OPTS="--color=auto --show-hidden --show-details --preview"
+f() {
+    fff "$@"
+    cd "$(cat "${XDG_CACHE_HOME:=${HOME}/.cache}/fff/.fff_d")"
+}
+EOF
+    echo "The fff configuration has been added to .bashrc."
+fi

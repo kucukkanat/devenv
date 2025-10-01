@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+export DEBIAN_FRONTEND=noninteractive
+if command -v apt &> /dev/null; then
+    apt update && apt install curl unzip -y
+else
+    echo "apt is not installed on this system. continuing"
+fi
+curl -fsSL https://deno.land/install.sh | sh -s -- -y

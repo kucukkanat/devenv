@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+if ! command -v bun &> /dev/null; then
+    echo "Error: 'bun' is not installed. Please install 'bun' and try again."
+    exit 1
+fi
+bun i -g @anthropic-ai/claude-code
+bun i -g @google/gemini-cli
+bun i -g opencode-ai

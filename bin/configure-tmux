@@ -1,3 +1,35 @@
+#!/usr/bin/env bash
+# Check if tmux is installed, if not, install it
+export DEBIAN_FRONTEND=noninteractive
+if ! command -v tmux &> /dev/null; then
+    echo "tmux is not installed. Installing..."
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS
+        if command -v brew &> /dev/null; then
+            brew install tmux
+        else
+            echo "Homebrew is not installed. Please install Homebrew first."
+            exit 1
+        fi
+    elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        # Linux
+        if command -v apt-get &> /dev/null; then
+            apt-get update && apt-get install -y tmux
+        elif command -v yum &> /dev/null; then
+            yum install -y tmux
+        else
+            echo "Unsupported package manager. Please install tmux manually."
+            exit 1
+        fi
+    else
+        echo "Unsupported OS. Please install tmux manually."
+        exit 1
+    fi
+else
+    echo "tmux is already installed."
+fi
+
+cat << EOF > ~/.tmux.conf
 # Unbind the default prefix
 unbind C-b
 
@@ -12,7 +44,7 @@ bind r source-file ~/.tmux.conf \; display "Config reloaded!"
 
 # Use cwd for new windows/panes
 bind c new-window -c "#{pane_current_path}"
-bind % split-window -h -c "#{pane_current_path}"
+bind | split-window -h -c "#{pane_current_path}"
 bind '"' split-window -c "#{pane_current_path}"
 
 
@@ -77,14 +109,4 @@ setw -g clock-mode-style 24
 setw -g monitor-activity on
 set -g visual-activity on
 
-# Plugins (install with prefix + I)
-set -g @plugin 'tmux-plugins/tpm'
-set -g @plugin 'tmux-plugins/tmux-resurrect'
-set -g @plugin 'tmux-plugins/tmux-continuum'
-
-# Continuum settings
-set -g @continuum-restore 'on'
-set -g @continuum-save-interval '15'
-
-# Initialize TMUX plugin manager (keep this line at the very bottom)
-run '~/.tmux/plugins/tpm/tpm'
+EOF

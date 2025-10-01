@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Install homebrew (curl and git are prerequisites for Homebrew)
+export DEBIAN_FRONTEND=noninteractive
+if command -v apt &> /dev/null; then
+    apt update && apt install curl git -y
+else
+    echo "apt is not installed on this system. continuing"
+fi
+export NONINTERACTIVE=1 
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
